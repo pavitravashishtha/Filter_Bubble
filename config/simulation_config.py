@@ -78,6 +78,7 @@ class SimulationConfig:
         self.intervention_type: str = "diversity_injection"
         self.intervention_strength: float = 0.2
         self.intervention_diversity_distance_threshold: float = 3.0
+        self.active_intervention: str | None = None
 
         # LLM SETTINGS
         self.dynamic_llm_trigger_threshold: float = 0.8

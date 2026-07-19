@@ -19,6 +19,7 @@ class Agent:
                              'heavy_youtube', 'balanced', 'cross_platform'.
         """
         self.agent_id: int = agent_id
+        self.id: int = agent_id  # alias used by network and measurement layers
         
         valid_archetypes = ['heavy_imdb', 'heavy_reddit', 'heavy_youtube', 'balanced', 'cross_platform']
         if archetype not in valid_archetypes:
@@ -52,18 +53,23 @@ class Agent:
         self.preference_vector: np.ndarray = np.zeros(25)
         self.user_bias: float = 0.0
 
+        self.content_position_history: List[float] = []
+        self.belief_position_history: List[float] = []
+        self.intervention_content_served: int = 0
+        self.intervention_content_engaged: int = 0
+
     def _init_platform_weights(self) -> Dict[str, float]:
         if self.archetype == 'heavy_imdb':
-            return {'imdb_weight': 0.7, 'reddit_weight': 0.2, 'youtube_weight': 0.1}
+            return {'imdb': 0.7, 'reddit': 0.2, 'youtube': 0.1}
         elif self.archetype == 'heavy_reddit':
-            return {'imdb_weight': 0.2, 'reddit_weight': 0.7, 'youtube_weight': 0.1}
+            return {'imdb': 0.2, 'reddit': 0.7, 'youtube': 0.1}
         elif self.archetype == 'heavy_youtube':
-            return {'imdb_weight': 0.1, 'reddit_weight': 0.2, 'youtube_weight': 0.7}
+            return {'imdb': 0.1, 'reddit': 0.2, 'youtube': 0.7}
         elif self.archetype == 'balanced':
-            return {'imdb_weight': 0.33, 'reddit_weight': 0.33, 'youtube_weight': 0.34}
+            return {'imdb': 0.33, 'reddit': 0.33, 'youtube': 0.34}
         elif self.archetype == 'cross_platform':
             weights = np.random.dirichlet([1.0, 1.0, 1.0])
-            return {'imdb_weight': float(weights[0]), 'reddit_weight': float(weights[1]), 'youtube_weight': float(weights[2])}
+            return {'imdb': float(weights[0]), 'reddit': float(weights[1]), 'youtube': float(weights[2])}
         return {}
 
     def _init_trait_params(self) -> Dict[str, tuple]:
@@ -157,3 +163,10 @@ class Agent:
         Resets the community migration flag to False.
         """
         self.community_just_migrated = False
+
+    def update_history(self, content_position: float) -> None:
+        """
+        Records the position of the content consumed and the current belief position.
+        """
+        self.content_position_history.append(content_position)
+        self.belief_position_history.append(self.belief_position)

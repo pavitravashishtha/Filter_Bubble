@@ -84,8 +84,8 @@ def load_reddit_pool(csv_path: str) -> list:
         content.downvotes = int(row['downvotes'])
         content.timestamp = int(row['timestamp'])
         
-        cp_origin = row['cross_post_origin']
-        content.cross_post_origin = None if cp_origin == -1 else int(cp_origin)
+        cross_post_origin = None if int(row["cross_post_origin"]) == -1 else int(row["cross_post_origin"])
+        content.cross_post_origin = cross_post_origin
         
         content.position_in_belief_space = float(row['position_in_belief_space'])
         content.emotional_valence = float(row['emotional_valence'])
