@@ -1,0 +1,23 @@
+{
+  "Action": 0,
+  "Adventure": 1,
+  "Animation": 2,
+  "Biography": 3,
+  "Comedy": 4,
+  "Crime": 5,
+  "Drama": 6,
+  "Family": 7,
+  "Fantasy": 8,
+  "Film-Noir": 9,
+  "History": 10,
+  "Horror": 11,
+  "Music": 12,
+  "Musical": 13,
+  "Mystery": 14,
+  "Romance": 15,
+  "Sci-Fi": 16,
+  "Sport": 17,
+  "Thriller": 18,
+  "War": 19,
+  "Western": 20
+}
