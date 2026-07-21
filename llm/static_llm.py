@@ -1,16 +1,12 @@
 import json
 from typing import Any
 
-# client initialized lazily to avoid errors when use_llm=False
-_client = None
+from groq import Groq
+from config.env_loader import get_groq_api_key
 
 def _get_client():
-    """Returns a lazily-initialized Anthropic client."""
-    global _client
-    if _client is None:
-        from anthropic import Anthropic
-        _client = Anthropic()
-    return _client
+    """Returns a fresh Groq client loaded from .env each call."""
+    return Groq(api_key=get_groq_api_key())
 
 
 def run_static_llm(agents: list, config: Any) -> dict:
@@ -76,14 +72,13 @@ def run_static_llm(agents: list, config: Any) -> dict:
     Return only valid JSON. No markdown. No preamble.
     """
 
-    client = _get_client()
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
+    response = _get_client().chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
         max_tokens=1000,
-        messages=[{"role": "user", "content": prompt}]
     )
 
-    raw = response.content[0].text
+    raw = response.choices[0].message.content
     try:
         result = json.loads(raw)
     except json.JSONDecodeError:

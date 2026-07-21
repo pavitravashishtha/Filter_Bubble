@@ -150,7 +150,8 @@ def build_all_networks(agents: List[Any], config: Any) -> Dict[str, nx.Graph]:
         )
     }
 
-def calculate_social_influence(agent: Any, networks: Dict[str, nx.Graph], config: Any) -> float:
+def calculate_social_influence(agent: Any, networks: Dict[str, nx.Graph], config: Any,
+                               confidence_threshold: float = None) -> float:
     """
     Calculates the total social pull on an agent from all three network layers combined.
     
@@ -158,31 +159,35 @@ def calculate_social_influence(agent: Any, networks: Dict[str, nx.Graph], config
         agent: The agent to calculate influence for.
         networks: Dictionary of the three network layers.
         config: Simulation configuration containing layer weights.
+        confidence_threshold: Pre-drawn threshold to avoid redundant parameter sampling.
         
     Returns:
         The combined social pull value as a float.
     """
     pulls = {}
-    effective_threshold = agent.draw_effective_parameters()["confidence_threshold"]
+    if confidence_threshold is None:
+        confidence_threshold = agent.draw_effective_parameters()["confidence_threshold"]
+    
+    belief = agent.belief_position
     
     for name, graph in networks.items():
         if agent.id not in graph:
-            pulls[name] = agent.belief_position
+            pulls[name] = belief
             continue
             
         neighbors = list(graph.neighbors(agent.id))
+        if not neighbors:
+            pulls[name] = belief
+            continue
         
-        valid_neighbors = []
-        for n in neighbors:
-            neighbor_belief = graph.nodes[n].get("belief_position", 5.0)
-            if abs(neighbor_belief - agent.belief_position) <= effective_threshold:
-                valid_neighbors.append(neighbor_belief)
-                
-        if valid_neighbors:
-            pulls[name] = float(np.mean(valid_neighbors))
-        else:
-            pulls[name] = agent.belief_position
+        neighbor_beliefs = np.array(
+            [graph.nodes[n].get("belief_position", 5.0) for n in neighbors]
+        )
+        mask = np.abs(neighbor_beliefs - belief) <= confidence_threshold
+        valid = neighbor_beliefs[mask]
             
+        pulls[name] = float(np.mean(valid)) if len(valid) > 0 else belief
+        
     # Find dominant platform
     dominant = max(agent.platform_weights, key=agent.platform_weights.get)
     weights = config.layer_weights[dominant]
@@ -194,6 +199,7 @@ def calculate_social_influence(agent: Any, networks: Dict[str, nx.Graph], config
     )
     
     return float(total_social_pull)
+
 
 def update_node_belief_positions(agents: List[Any], networks: Dict[str, nx.Graph]) -> None:
     """

@@ -198,7 +198,10 @@ def run_core_timestep(state: SimulationState, timestep: int) -> None:
             )
 
         # STEP 6: Social influence
-        social_pull = calculate_social_influence(agent, state.networks, state.config)
+        social_pull = calculate_social_influence(
+            agent, state.networks, state.config,
+            confidence_threshold=params["confidence_threshold"]
+        )
         social_influence = social_pull - agent.belief_position
 
         # STEP 7: Final position update

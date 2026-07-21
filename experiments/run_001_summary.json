@@ -1,0 +1,29 @@
+{
+  "run_id": "research_run_001",
+  "elapsed_seconds": 499.89648628234863,
+  "final_n_agents": 370,
+  "final_mean_belief": 3.7286122432906823,
+  "final_std_belief": 2.3898304872586422,
+  "checkpoint_means": {
+    "100": 4.5472666734634375,
+    "200": 4.270786769077546,
+    "400": 3.9152515180815195,
+    "600": 3.6449672834179205,
+    "800": 3.5902877869936574,
+    "900": 3.4640179196149727,
+    "1000": 3.389950197582507
+  },
+  "youtube_wv_start": -0.54738498296243,
+  "youtube_wv_end": 0.04210503896154837,
+  "early_exposure_bias": 0.7588333333333332,
+  "late_exposure_bias": 0.7358333333333335,
+  "post_intervention_bias": 0.7448333333333333,
+  "adapted_fraction": 0.008108108108108109,
+  "total_anomalies": 1227,
+  "anomaly_types": {
+    "unexpected_resilience": 926,
+    "intervention_backfire": 301
+  },
+  "total_skips": 140033,
+  "n_communities": 20
+}

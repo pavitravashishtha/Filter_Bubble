@@ -27,6 +27,8 @@ class RedditPlatform(Platform):
         )
         self.graph = community_graph
         self.decay_constant = config.reddit_decay_constant
+        self._community_mean_cache: dict = {}   # {community_id: float}
+        self._cache_timestep: int = -1
 
     def serve_content(self, agent: Any, content_pool: List[Any], timestep: int,
                       intervention: Optional[str] = None) -> Any:
@@ -42,6 +44,7 @@ class RedditPlatform(Platform):
         Returns:
             The selected content item.
         """
+        self._refresh_community_means(timestep)
         candidates = self.generate_candidates(
             agent, content_pool, intervention
         )
@@ -99,7 +102,7 @@ class RedditPlatform(Platform):
         Computes a composite score based on 'hotness' and 'ideological alignment'.
         """
         hot = self._hot_score(content, timestep)
-        ideological = self._ideological_alignment(content, agent)
+        ideological = self._ideological_alignment(content, agent, timestep)
         return hot * 0.7 + ideological * 0.3
 
     def _hot_score(self, content: Any, timestep: int) -> float:
@@ -130,27 +133,39 @@ class RedditPlatform(Platform):
         denominator = 1 + z**2 / n
         return numerator / denominator
 
-    def _ideological_alignment(self, content: Any, agent: Any) -> float:
+    def _ideological_alignment(self, content: Any, agent: Any, timestep: int = 0) -> float:
         """
         Computes how well the content aligns with the community's mean belief.
         """
-        community_mean = self._get_community_mean(agent)
+        community_mean = self._get_community_mean(agent, timestep)
         distance = abs(content.position_in_belief_space - community_mean)
         return max(0.0, 1.0 - distance / 10.0)
 
-    def _get_community_mean(self, agent: Any) -> float:
+    def _refresh_community_means(self, timestep: int) -> None:
         """
-        Retrieves the average belief position of all members in the agent's primary community.
+        Recomputes and caches community mean belief positions once per timestep.
+        """
+        if timestep == self._cache_timestep:
+            return
+        self._cache_timestep = timestep
+        self._community_mean_cache = {}
+        # Group node belief_positions by community_id in a single pass
+        buckets: dict = {}
+        for n, data in self.graph.nodes(data=True):
+            cid = data.get("community_id")
+            if cid is not None:
+                buckets.setdefault(cid, []).append(data.get("belief_position", 5.0))
+        for cid, positions in buckets.items():
+            self._community_mean_cache[cid] = float(np.mean(positions))
+
+    def _get_community_mean(self, agent: Any, timestep: int = 0) -> float:
+        """
+        Retrieves the cached average belief position of the agent's primary community.
         """
         if not agent.subscribed_communities:
             return 5.0
         community_id = agent.subscribed_communities[0]
-        members = [n for n in self.graph.nodes()
-                   if self.graph.nodes[n].get("community_id") == community_id]
-        if not members:
-            return 5.0
-        positions = [self.graph.nodes[m].get("belief_position", 5.0) for m in members]
-        return float(np.mean(positions))
+        return self._community_mean_cache.get(community_id, 5.0)
 
     def score_content(self, content: Any, agent: Any, timestep: int) -> float:
         """

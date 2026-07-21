@@ -1,0 +1,31 @@
+{
+  "run_id": "research_run_004",
+  "elapsed_seconds": 198.21977305412292,
+  "final_n_agents": 370,
+  "final_mean_belief": 3.917613818635288,
+  "final_std_belief": 2.37674737559185,
+  "checkpoint_means": {
+    "100": 4.5472666734634375,
+    "200": 4.270786769077546,
+    "400": 3.9152515180815195,
+    "600": 3.6449672834179205,
+    "800": 3.5902877869936574,
+    "900": 3.588896552537898,
+    "1000": 3.610560746591437
+  },
+  "youtube_wv_start": -0.54738498296243,
+  "youtube_wv_end": 0.11966565288281397,
+  "early_exposure_bias": 0.7588333333333332,
+  "late_exposure_bias": 0.7358333333333335,
+  "post_intervention_bias": 0.7530000000000001,
+  "adapted_fraction": 0.0,
+  "total_anomalies": 1253,
+  "anomaly_types": {
+    "unexpected_resilience": 893,
+    "intervention_backfire": 360
+  },
+  "total_skips": 139742,
+  "n_communities": 20,
+  "intervention_type": "social_bridge",
+  "intervention_start": 800
+}

@@ -38,7 +38,7 @@ class Platform(ABC):
         pass
 
     @abstractmethod
-    def serve_content(self, agent: Any, content_pool: List[Any], timestep: int) -> Any:
+    def serve_content(self, agent: Any, content_pool: List[Any], timestep: int, intervention: Optional[Dict[str, Any]] = None) -> Any:
         """
         Selects and returns one content item for this agent.
         
@@ -46,6 +46,7 @@ class Platform(ABC):
             agent (Agent): The agent to serve content to.
             content_pool (List[Content]): The pool of available content.
             timestep (int): The current timestep in the simulation.
+            intervention (Optional[Dict]): Any active intervention to apply during content selection.
             
         Returns:
             Content: The selected content item.

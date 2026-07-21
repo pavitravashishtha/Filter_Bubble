@@ -157,6 +157,7 @@ class YouTubePlatform(Platform):
             self.weights = {k: v / total
                             for k, v in self.weights.items()}
         self.weights["W_D"] = max(0.0, self.weights["W_D"])
+        self.weights["W_N"] = max(0.0, self.weights["W_N"])
 
     def apply_friction(self, friction_factor: float = 0.5) -> None:
         """
