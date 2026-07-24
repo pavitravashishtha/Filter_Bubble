@@ -157,15 +157,23 @@ def run_full_research_simulation():
           f"of agents learned to skip intervention content")
     
     print(f"\n-- ANOMALIES AND EVENTS --")
-    print(f"Total anomalies detected: "
-          f"{len(store.anomaly_log)}")
+    total_anomalies = len(store.anomaly_log)
+    anomalies_per_agent = total_anomalies / len(agents)
+    skips_per_agent = len(store.skip_log) / len(agents)
+    print(f"Total anomalies detected: {total_anomalies}")
+    print(f"Anomalies per agent: {anomalies_per_agent:.3f}")
     anomaly_types = {}
     for a in store.anomaly_log:
         t = a.anomaly_type
         anomaly_types[t] = anomaly_types.get(t, 0) + 1
+    anomaly_types_per_agent = {
+        k: v / len(agents)
+        for k, v in anomaly_types.items()
+    }
     for atype, count in anomaly_types.items():
         print(f"  {atype}: {count}")
     print(f"Total skip events: {len(store.skip_log)}")
+    print(f"Skips per agent: {skips_per_agent:.1f}")
     
     print(f"\n-- REDDIT COMMUNITIES --")
     print(f"Communities active: {len(community_counts)}")
@@ -202,7 +210,10 @@ def run_full_research_simulation():
         "post_intervention_bias": intervention_bias,
         "adapted_fraction": adapted_fraction,
         "total_anomalies": len(store.anomaly_log),
+        "anomalies_per_agent": anomalies_per_agent,
+        "skips_per_agent": skips_per_agent,
         "anomaly_types": anomaly_types,
+        "anomaly_types_per_agent": anomaly_types_per_agent,
         "total_skips": len(store.skip_log),
         "n_communities": len(community_counts),
         "intervention_type": config.intervention_type,
@@ -316,6 +327,18 @@ def save_full_results(state, config, elapsed):
         ),
         "skip_count": len(store.skip_log),
         "total_anomalies": len(store.anomaly_log),
+        "anomalies_per_agent": len(store.anomaly_log) / len(agents),
+        "skips_per_agent": len(store.skip_log) / len(agents),
+        "anomaly_types_per_agent": {
+            k: v / len(agents)
+            for k, v in {
+                a.anomaly_type: sum(
+                    1 for x in store.anomaly_log
+                    if x.anomaly_type == a.anomaly_type
+                )
+                for a in store.anomaly_log
+            }.items()
+        },
     }
     
     path = f"experiments/{config.run_id}_full_results.json"

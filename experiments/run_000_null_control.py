@@ -1,6 +1,6 @@
 import sys
 import os
-# Allow running as both `python experiments/run_003_algorithm_friction.py` and `python -m experiments.run_003_algorithm_friction`
+# Allow running as both `python experiments/run_000_null_control.py` and `python -m experiments.run_000_null_control`
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import json
@@ -11,13 +11,13 @@ from experiments.run_simulation import run_simulation
 
 def run_full_research_simulation():
     config = SimulationConfig(
-        run_id = "research_run_003",
+        run_id = "research_run_000",
         random_seed = 42,
         total_timesteps = 1000,
         burnin_end = 100,
-        intervention_start = 800,
+        intervention_start = 1001,  # effectively never — simulation only runs 1000 steps
         checkpoints = [100, 200, 400, 600, 800, 900, 1000],
-        sequential_llm_checkpoints = [400, 800, 1000],
+        sequential_llm_checkpoints = [1000],
         use_llm = False,
         n_agents = 300,
         agent_distribution = {
@@ -27,18 +27,18 @@ def run_full_research_simulation():
             "balanced": 80,
             "cross_platform": 40
         },
-        intervention_type = "algorithm_friction",  # changed from diversity_injection
+        intervention_type = "null",
         intervention_strength = 0.2,
         new_agent_entry_rate = 1,
     )
     
-    print("=== FILTER BUBBLE SIMULATION — RESEARCH RUN 003 ===")
+    print("=== FILTER BUBBLE SIMULATION — RESEARCH RUN 000 (NULL CONTROL) ===")
     print(f"Agents: {config.n_agents}")
     print(f"Timesteps: {config.total_timesteps}")
     print(f"Intervention: {config.intervention_type} "
-          f"at timestep {config.intervention_start}")
+          f"(intervention_start={config.intervention_start} — never activates)")
     print(f"Random seed: {config.random_seed}")
-    print("===================================================\n")
+    print("===================================================================\n")
     
     start_time = time.time()
     state = run_simulation(config)
@@ -101,6 +101,19 @@ def run_full_research_simulation():
             c = agent.primary_community
             community_counts[c] = community_counts.get(c, 0) + 1
     
+    # ── Per-capita metrics ──
+    total_anomalies = len(store.anomaly_log)
+    anomalies_per_agent = total_anomalies / len(agents)
+    skips_per_agent = len(store.skip_log) / len(agents)
+    anomaly_types = {}
+    for a in store.anomaly_log:
+        t = a.anomaly_type
+        anomaly_types[t] = anomaly_types.get(t, 0) + 1
+    anomaly_types_per_agent = {
+        k: v / len(agents)
+        for k, v in anomaly_types.items()
+    }
+    
     # ── PRINT FULL RESULTS ──
     print("\n=== SIMULATION COMPLETE ===")
     print(f"Total runtime: {elapsed:.1f} seconds "
@@ -113,23 +126,23 @@ def run_full_research_simulation():
     for t, mean in checkpoint_means.items():
         label = ""
         if t == 100:  label = " <- burn-in end"
-        if t == 800:  label = " <- pre-intervention"
+        if t == 800:  label = " <- t=800 reference"
         if t == 1000: label = " <- final"
         print(f"  Timestep {t:4d}: {mean:.3f}{label}")
     
-    print(f"\n-- BUBBLE FORMATION --")
+    print(f"\n-- BUBBLE FORMATION (no intervention) --")
     print(f"Exposure bias at t=200:  {early_bias:.3f} "
           f"(early simulation)")
     print(f"Exposure bias at t=800:  {late_bias:.3f} "
-          f"(pre-intervention)")
+          f"(reference point)")
     print(f"Exposure bias at t=1000: {intervention_bias:.3f} "
-          f"(post-intervention)")
+          f"(final — no intervention)")
     bias_change = late_bias - early_bias
-    intervention_effect = intervention_bias - late_bias
+    natural_drift = intervention_bias - late_bias
     print(f"Bubble formation rate:   {bias_change:+.3f} "
           f"(positive = bubbles forming)")
-    print(f"Intervention effect:     {intervention_effect:+.3f} "
-          f"(negative = intervention working)")
+    print(f"Natural drift t800->t1000: {natural_drift:+.3f} "
+          f"(null baseline)")
     
     print(f"\n-- YOUTUBE RL WEIGHTS --")
     if weight_snapshots:
@@ -149,26 +162,15 @@ def run_full_research_simulation():
               f"({wd_change:+.3f})")
     
     print(f"\n-- INTERVENTION --")
-    print(f"Type: {config.intervention_type}")
+    print(f"Type: {config.intervention_type} (null — no intervention)")
     print(f"Agents tracked: "
           f"{len(state.intervention_manager.agent_response_tracker)}")
     print(f"Adapted fraction: {adapted_fraction:.1%} "
           f"of agents learned to skip intervention content")
     
     print(f"\n-- ANOMALIES AND EVENTS --")
-    total_anomalies = len(store.anomaly_log)
-    anomalies_per_agent = total_anomalies / len(agents)
-    skips_per_agent = len(store.skip_log) / len(agents)
     print(f"Total anomalies detected: {total_anomalies}")
     print(f"Anomalies per agent: {anomalies_per_agent:.3f}")
-    anomaly_types = {}
-    for a in store.anomaly_log:
-        t = a.anomaly_type
-        anomaly_types[t] = anomaly_types.get(t, 0) + 1
-    anomaly_types_per_agent = {
-        k: v / len(agents)
-        for k, v in anomaly_types.items()
-    }
     for atype, count in anomaly_types.items():
         print(f"  {atype}: {count}")
     print(f"Total skip events: {len(store.skip_log)}")
@@ -208,7 +210,7 @@ def run_full_research_simulation():
         "late_exposure_bias": late_bias,
         "post_intervention_bias": intervention_bias,
         "adapted_fraction": adapted_fraction,
-        "total_anomalies": len(store.anomaly_log),
+        "total_anomalies": total_anomalies,
         "anomalies_per_agent": anomalies_per_agent,
         "skips_per_agent": skips_per_agent,
         "anomaly_types": anomaly_types,
@@ -219,9 +221,9 @@ def run_full_research_simulation():
         "intervention_start": config.intervention_start,
     }
     
-    with open("experiments/run_003_summary.json", "w") as f:
+    with open("experiments/run_000_summary.json", "w") as f:
         json.dump(results_summary, f, indent=2)
-    print("Summary saved to experiments/run_003_summary.json")
+    print("Summary saved to experiments/run_000_summary.json")
     
     full_results = save_full_results(state, config, elapsed)
     return state
@@ -236,7 +238,6 @@ def save_full_results(state, config, elapsed):
     youtube = state.platform_factory.get_platform("youtube")
     
     # Belief trajectories — population mean per timestep
-    # Shape: (n_timesteps,)
     mean_trajectory = []
     std_trajectory = []
     for t in range(config.total_timesteps):
@@ -297,6 +298,18 @@ def save_full_results(state, config, elapsed):
         for k, v in archetype_finals.items()
     }
     
+    # Per-capita metrics
+    anomaly_types = {}
+    for a in store.anomaly_log:
+        t = a.anomaly_type
+        anomaly_types[t] = anomaly_types.get(t, 0) + 1
+    anomalies_per_agent = len(store.anomaly_log) / len(agents)
+    skips_per_agent = len(store.skip_log) / len(agents)
+    anomaly_types_per_agent = {
+        k: v / len(agents)
+        for k, v in anomaly_types.items()
+    }
+    
     full_results = {
         "run_id": config.run_id,
         "elapsed_seconds": elapsed,
@@ -326,18 +339,9 @@ def save_full_results(state, config, elapsed):
         ),
         "skip_count": len(store.skip_log),
         "total_anomalies": len(store.anomaly_log),
-        "anomalies_per_agent": len(store.anomaly_log) / len(agents),
-        "skips_per_agent": len(store.skip_log) / len(agents),
-        "anomaly_types_per_agent": {
-            k: v / len(agents)
-            for k, v in {
-                a.anomaly_type: sum(
-                    1 for x in store.anomaly_log
-                    if x.anomaly_type == a.anomaly_type
-                )
-                for a in store.anomaly_log
-            }.items()
-        },
+        "anomalies_per_agent": anomalies_per_agent,
+        "skips_per_agent": skips_per_agent,
+        "anomaly_types_per_agent": anomaly_types_per_agent,
     }
     
     path = f"experiments/{config.run_id}_full_results.json"

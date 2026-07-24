@@ -97,6 +97,26 @@ def load_all_summaries() -> dict:
 
 
 @st.cache_data
+def load_statistical_comparisons() -> dict | None:
+    """Load experiments/statistical_comparisons.json if it exists."""
+    path = "experiments/statistical_comparisons.json"
+    if os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
+    return None
+
+
+@st.cache_data
+def load_multiseed_results(run_id: str) -> dict | None:
+    """Load experiments/multiseed_{run_id}_results.json if it exists."""
+    path = f"experiments/multiseed_{run_id}_results.json"
+    if os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
+    return None
+
+
+@st.cache_data
 def run_mini_simulation(
     n_agents: int,
     n_timesteps: int,
@@ -165,6 +185,7 @@ page = st.sidebar.radio(
         "⚠️ Anomalies",
         "📊 Multi-Run Comparison",
         "🔬 Deep Analysis",
+        "📐 Statistical Analysis",
     ],
 )
 
@@ -1172,3 +1193,102 @@ elif page == "🔬 Deep Analysis":
             )
         else:
             st.info("No anomalies detected in this run.")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SECTION 8 — STATISTICAL ANALYSIS
+# ═══════════════════════════════════════════════════════════════════════════
+elif page == "📐 Statistical Analysis":
+
+    st.title("Statistical Analysis")
+    st.markdown(
+        "Multi-seed experiment results with formal hypothesis testing."
+    )
+
+    comparisons = load_statistical_comparisons()
+
+    if comparisons is None:
+        st.warning(
+            "No statistical results found. Run:\n"
+            "```\npython -m experiments.multi_seed_runner 30\n```"
+        )
+    else:
+        st.subheader("Pairwise Statistical Comparisons")
+        st.markdown(
+            "Each intervention compared against null "
+            "control (Run 000). p < 0.05 = statistically "
+            "significant difference."
+        )
+
+        for comp in comparisons:
+            col1, col2, col3, col4, col5 = st.columns(5)
+            col1.markdown(f"**{comp['experiment_b']}**")
+            col2.metric("Mean Effect",
+                        f"{comp['mean_b']:.4f}")
+            col3.metric("p-value",
+                        f"{comp['p_value']:.4f}")
+            col4.metric("Cohen's d",
+                        f"{comp['cohens_d']:.3f}")
+            if comp["significant"]:
+                col5.success(
+                    f"✓ Significant ({comp['effect_size']})"
+                )
+            else:
+                col5.error("✗ Not significant")
+            st.markdown("---")
+
+        st.subheader("Intervention Effect Distribution")
+        st.markdown(
+            "Distribution of intervention effects "
+            "across all seeds. Negative = bubbles reduced. "
+            "Positive = backfire."
+        )
+
+        run_ids = ["run_000", "run_001", "run_002",
+                   "run_003", "run_004"]
+        labels = ["Null", "Div Late", "Div Early",
+                  "Friction", "Bridge"]
+
+        fig, ax = plt.subplots(figsize=(12, 5))
+
+        any_data = False
+        for i, (run_id, label) in enumerate(
+            zip(run_ids, labels)
+        ):
+            data = load_multiseed_results(run_id)
+            if data:
+                any_data = True
+                effects = [r["intervention_effect"]
+                           for r in data["per_seed_results"]]
+                ax.boxplot(
+                    effects,
+                    positions=[i],
+                    widths=0.6,
+                    patch_artist=True,
+                    boxprops=dict(facecolor=(
+                        "lightgreen" if float(np.mean(effects)) < 0
+                        else "lightsalmon"
+                    ))
+                )
+
+        if any_data:
+            ax.axhline(y=0, color="black", linewidth=1.5,
+                       linestyle="--", label="No effect")
+            ax.set_xticks(range(len(labels)))
+            ax.set_xticklabels(labels)
+            ax.set_ylabel("Intervention Effect on Exposure Bias")
+            ax.set_title(
+                "Distribution of Intervention Effects "
+                "Across Seeds\n"
+                "Green = effective, Red = backfire"
+            )
+            ax.grid(True, alpha=0.3, axis="y")
+            ax.legend()
+            st.pyplot(fig)
+        else:
+            st.info(
+                "No multi-seed result files found. "
+                "Run the multi-seed runner first."
+            )
+        plt.close()
+

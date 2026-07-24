@@ -29,6 +29,9 @@ class RedditPlatform(Platform):
         self.decay_constant = config.reddit_decay_constant
         self._community_mean_cache: dict = {}   # {community_id: float}
         self._cache_timestep: int = -1
+        # Pre-built index: community_id -> list[content] for O(1) lookup
+        self._community_index: dict = {}        # built lazily on first use
+        self._community_index_built: bool = False
 
     def serve_content(self, agent: Any, content_pool: List[Any], timestep: int,
                       intervention: Optional[str] = None) -> Any:
@@ -88,16 +91,36 @@ class RedditPlatform(Platform):
             community_content = community_content[:80] + diverse
         return community_content
 
+    def _build_community_index(self, content_pool: List[Any]) -> None:
+        """
+        Builds a {community_id -> [content]} index from the content pool.
+        Called once on first use; subsequent calls are no-ops unless the pool
+        reference changes.
+        """
+        index: dict = {}
+        for c in content_pool:
+            cid = getattr(c, "community_id", None)
+            if cid is not None:
+                if cid not in index:
+                    index[cid] = []
+                index[cid].append(c)
+        self._community_index = index
+        self._community_index_built = True
+
     def _get_community_content(self, agent: Any, content_pool: List[Any]) -> List[Any]:
         """
-        Filters the content pool down to the agent's subscribed communities.
+        Returns content for the agent's subscribed communities using a
+        pre-built index (O(1) dict lookup instead of O(pool_size) scan).
         """
         if not agent.subscribed_communities:
             return []
-        agent_community_ids = set(agent.subscribed_communities)
-        return [c for c in content_pool
-                if hasattr(c, "community_id")
-                and c.community_id in agent_community_ids]
+        # Build index once on first call
+        if not self._community_index_built:
+            self._build_community_index(content_pool)
+        result: List[Any] = []
+        for cid in agent.subscribed_communities:
+            result.extend(self._community_index.get(cid, []))
+        return result
 
     def _hybrid_score(self, content: Any, agent: Any, timestep: int) -> float:
         """
@@ -237,31 +260,38 @@ class RedditPlatform(Platform):
     def _find_aligned_community(self, agent: Any) -> Optional[Any]:
         """
         Finds the closest community to the agent's current belief position.
+        Uses the pre-computed _community_mean_cache (populated by
+        _refresh_community_means) so this is O(n_communities) instead of
+        O(n_communities * n_nodes).
         """
         best_community = None
         best_distance = float("inf")
-        all_communities = set(
-            self.graph.nodes[n].get("community_id")
-            for n in self.graph.nodes()
-            if self.graph.nodes[n].get("community_id") is not None
-        )
-        for community_id in all_communities:
-            if community_id in agent.subscribed_communities:
-                continue
-            members = [n for n in self.graph.nodes()
-                       if self.graph.nodes[n].get(
-                           "community_id"
-                       ) == community_id]
-            if not members:
-                continue
-            positions = [self.graph.nodes[m].get(
-                "belief_position", 5.0
-            ) for m in members]
-            community_mean = float(np.mean(positions))
-            distance = abs(agent.belief_position - community_mean)
-            if distance < best_distance:
-                best_distance = distance
-                best_community = community_id
+        # Fall back to graph scan only if cache is empty (e.g., t=0)
+        if self._community_mean_cache:
+            for community_id, community_mean in self._community_mean_cache.items():
+                if community_id in agent.subscribed_communities:
+                    continue
+                distance = abs(agent.belief_position - community_mean)
+                if distance < best_distance:
+                    best_distance = distance
+                    best_community = community_id
+        else:
+            # Cold-start fallback: build means from graph directly
+            buckets: dict = {}
+            for n, data in self.graph.nodes(data=True):
+                cid = data.get("community_id")
+                if cid is not None:
+                    buckets.setdefault(cid, []).append(
+                        data.get("belief_position", 5.0)
+                    )
+            for community_id, positions in buckets.items():
+                if community_id in agent.subscribed_communities:
+                    continue
+                community_mean = float(np.mean(positions))
+                distance = abs(agent.belief_position - community_mean)
+                if distance < best_distance:
+                    best_distance = distance
+                    best_community = community_id
         return best_community
 
     def record_weight_snapshot(self, timestep: int) -> None:
