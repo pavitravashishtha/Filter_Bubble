@@ -115,7 +115,7 @@ def initialize_simulation(config: SimulationConfig) -> SimulationState:
     # Step 8: Initialize LLM coordinator and run static mode
     from llm.coordinator import LLMPipelineCoordinator
     llm_coordinator = LLMPipelineCoordinator(config)
-    llm_coordinator.run_static_mode(agents)
+    static_result = llm_coordinator.run_static_mode(agents)
 
     state = SimulationState(
         agents=agents,
@@ -126,6 +126,10 @@ def initialize_simulation(config: SimulationConfig) -> SimulationState:
         intervention_manager=intervention_manager,
         config=config,
     )
+    state.research_log.append({
+        "mode": "static_llm",
+        "result": static_result
+    })
     state.llm_coordinator = llm_coordinator
     return state
 
@@ -199,7 +203,10 @@ def run_core_timestep(state: SimulationState, timestep: int) -> None:
 
         # STEP 6: Social influence
         social_pull = calculate_social_influence(
-            agent, state.networks, state.config,
+            agent, 
+            state.networks, 
+            state.config,
+            active_platform_name=platform.platform_name,
             confidence_threshold=params["confidence_threshold"]
         )
         social_influence = social_pull - agent.belief_position
@@ -208,7 +215,7 @@ def run_core_timestep(state: SimulationState, timestep: int) -> None:
         new_position = (
             agent.belief_position
             + content_influence * platform.algo_weight
-            + social_influence * platform.social_weight * 0.1
+            + social_influence * platform.social_weight
         )
         agent.belief_position = float(np.clip(new_position, 0.0, 10.0))
 
@@ -217,6 +224,11 @@ def run_core_timestep(state: SimulationState, timestep: int) -> None:
         agent.interaction_count += 1
         agent.seen_content_ids.add(content.content_id)
         agent.update_history(content.position_in_belief_space)
+
+        # Decay novelty of served content
+        if hasattr(content, "decay_rate"):
+            content.decay_novelty(timestep, content.decay_rate)
+            content.recent_engagement = engagement_strength
 
         if getattr(content, "is_intervention_content", False):
             agent.intervention_content_served += 1
@@ -299,6 +311,57 @@ def run_simulation(config: SimulationConfig = None) -> SimulationState:
                     np.clip(np.random.normal(5.0, 2.0), 0.0, 10.0)
                 )
                 state.agents.append(new_agent)
+
+                # Add new agent to all three networks
+                for network_name, graph in state.networks.items():
+                    graph.add_node(new_agent.id)
+                    graph.nodes[new_agent.id]["belief_position"] = (
+                        new_agent.belief_position
+                    )
+                    graph.nodes[new_agent.id]["archetype"] = (
+                        new_agent.archetype
+                    )
+                    graph.nodes[new_agent.id]["community_id"] = None
+                    
+                    # Connect to a random sample of existing nodes
+                    # with low probability so they're not isolated
+                    existing_nodes = list(graph.nodes())
+                    existing_nodes.remove(new_agent.id)
+                    n_connections = max(1, int(
+                        len(existing_nodes) * 0.02
+                    ))
+                    connect_to = random.sample(
+                        existing_nodes, 
+                        min(n_connections, len(existing_nodes))
+                    )
+                    for node in connect_to:
+                        graph.add_edge(new_agent.id, node)
+
+                # Assign community for Reddit
+                if not new_agent.subscribed_communities:
+                    # Find closest community by belief position
+                    communities = set(
+                        state.networks["reddit"].nodes[n].get("community_id")
+                        for n in state.networks["reddit"].nodes()
+                        if state.networks["reddit"].nodes[n].get("community_id") 
+                        is not None
+                    )
+                    if communities:
+                        closest = min(
+                            communities,
+                            key=lambda c: abs(
+                                new_agent.belief_position - 
+                                state.platform_factory.get_platform("reddit")
+                                ._get_community_mean_by_id(
+                                    c, state.networks["reddit"]
+                                )
+                            )
+                        )
+                        new_agent.primary_community = closest
+                        new_agent.subscribed_communities = [closest]
+                        state.networks["reddit"].nodes[
+                            new_agent.id
+                        ]["community_id"] = closest
 
             # Reddit migration check
             if t % config.reddit_migration_check_interval == 0:

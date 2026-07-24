@@ -149,9 +149,46 @@ def test_detect_anomalies_rapid_radicalization():
     store = MeasurementStore(10, 100, [])
     store.drift_rates[0, 9] = 0.9 # drift rate > 0.8 at tidx=9 (timestep=10)
     store.belief_positions[0, 9] = 1.0 # ensure it's found as latest metric
+    store.last_recorded_timestep[0] = 9
     
     agent = MockAgent(0)
     anomalies = detect_anomalies([agent], store, timestep=10)
     
     assert len(anomalies) > 0
     assert any(a.anomaly_type == "rapid_radicalization" for a in anomalies)
+
+
+def test_measurement_store_optimizations():
+    # Verify dtype of metric arrays is float32
+    store = MeasurementStore(n_agents=10, n_timesteps=100, checkpoints=[])
+    assert store.belief_positions.dtype == np.float32
+    assert store._belief_positions.dtype == np.float32
+
+    # Verify initial active agents count and physical capacity
+    assert store._active_agents == 10
+    assert store._belief_positions.shape[0] == 10
+    assert store.belief_positions.shape[0] == 10
+
+    # Ensure dynamic addition of agent within initial capacity doesn't grow physical capacity
+    store._ensure_capacity(5)
+    assert store._active_agents == 10
+    assert store._belief_positions.shape[0] == 10
+
+    # Ensure dynamic addition of agent beyond initial capacity grows physical capacity by chunk size (256)
+    store._ensure_capacity(12)  # agent_id = 12 implies we need capacity for at least 13 agents
+    assert store._active_agents == 13
+    # 10 + 256 = 266 physical capacity
+    assert store._belief_positions.shape[0] == 266
+    # Public property still returns the active view of size 13
+    assert store.belief_positions.shape[0] == 13
+
+    # Check that data is preserved after resizing
+    store.belief_positions[12, 49] = 9.5
+    assert store.belief_positions[12, 49] == 9.5
+    
+    # Try growing even further
+    store._ensure_capacity(300)
+    assert store._active_agents == 301
+    assert store._belief_positions.shape[0] == 266 + 256 # 522
+    assert store.belief_positions[12, 49] == 9.5
+

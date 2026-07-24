@@ -83,8 +83,14 @@ class InterventionManager:
         per_agent = {}
         
         for agent_id, responses in self.agent_response_tracker.items():
-            early_responses = [r for r in responses if r["timestep"] < 850]
-            late_responses = [r for r in responses if r["timestep"] >= 950]
+            intervention_start = self.config.intervention_start
+            early_end = intervention_start + 50
+            late_start = intervention_start + 150
+
+            early_responses = [r for r in responses
+                               if r["timestep"] < early_end]
+            late_responses = [r for r in responses
+                              if r["timestep"] >= late_start]
             
             early_rate = sum(1 for r in early_responses if r["engaged"]) / len(early_responses) if early_responses else 0.0
             late_rate = sum(1 for r in late_responses if r["engaged"]) / len(late_responses) if late_responses else 0.0

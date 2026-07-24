@@ -1,6 +1,6 @@
 {
   "run_id": "research_run_001",
-  "elapsed_seconds": 499.89648628234863,
+  "elapsed_seconds": 222.5399444103241,
   "config": {
     "n_agents": 300,
     "total_timesteps": 1000,

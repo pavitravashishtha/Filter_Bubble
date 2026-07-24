@@ -51,8 +51,10 @@ class RedditPlatform(Platform):
         if not candidates:
             return random.choice(content_pool)
         return max(candidates,
-                   key=lambda c: self._hybrid_score(
-                       c, agent, timestep
+                   key=lambda c: (
+                       self._hybrid_score(c, agent, timestep)
+                       if c.content_type == "post"
+                       else self._comment_score(c, agent)
                    ))
 
     def generate_candidates(self, agent: Any, content_pool: List[Any],
@@ -132,6 +134,13 @@ class RedditPlatform(Platform):
                      ))
         denominator = 1 + z**2 / n
         return numerator / denominator
+
+    def _comment_score(self, content, agent):
+        wilson = self._wilson_score(content)
+        ideological = self._ideological_alignment(
+            content, agent
+        )
+        return wilson * 0.7 + ideological * 0.3
 
     def _ideological_alignment(self, content: Any, agent: Any, timestep: int = 0) -> float:
         """
@@ -266,3 +275,16 @@ class RedditPlatform(Platform):
             "timestep": timestep,
             "decay_constant": self.decay_constant,
         })
+
+    def _get_community_mean_by_id(self, community_id: int,
+                                   graph) -> float:
+        members = [n for n in graph.nodes()
+                   if graph.nodes[n].get(
+                       "community_id"
+                   ) == community_id]
+        if not members:
+            return 5.0
+        positions = [graph.nodes[m].get(
+            "belief_position", 5.0
+        ) for m in members]
+        return float(np.mean(positions))

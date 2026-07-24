@@ -15,7 +15,7 @@ def load_imdb_pool(csv_path: str, latent_dims: int = 25) -> list:
     Returns:
         list: A list of IMDBContent objects.
     """
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, engine='python')
     df = df.fillna(0.5)
     
     np.random.seed(42)
@@ -68,7 +68,7 @@ def load_reddit_pool(csv_path: str) -> list:
     Returns:
         list: A list of RedditContent objects.
     """
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, engine='python')
     df = df.fillna(0.5)
     
     items = []
@@ -107,7 +107,7 @@ def load_youtube_pool(csv_path: str) -> list:
     Returns:
         list: A list of YouTubeContent objects.
     """
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, engine='python')
     df = df.fillna(0.5)
     
     items = []

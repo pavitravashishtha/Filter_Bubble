@@ -151,6 +151,7 @@ def build_all_networks(agents: List[Any], config: Any) -> Dict[str, nx.Graph]:
     }
 
 def calculate_social_influence(agent: Any, networks: Dict[str, nx.Graph], config: Any,
+                               active_platform_name: str = None,
                                confidence_threshold: float = None) -> float:
     """
     Calculates the total social pull on an agent from all three network layers combined.
@@ -159,6 +160,7 @@ def calculate_social_influence(agent: Any, networks: Dict[str, nx.Graph], config
         agent: The agent to calculate influence for.
         networks: Dictionary of the three network layers.
         config: Simulation configuration containing layer weights.
+        active_platform_name: Optional name of the active platform context.
         confidence_threshold: Pre-drawn threshold to avoid redundant parameter sampling.
         
     Returns:
@@ -188,9 +190,15 @@ def calculate_social_influence(agent: Any, networks: Dict[str, nx.Graph], config
             
         pulls[name] = float(np.mean(valid)) if len(valid) > 0 else belief
         
-    # Find dominant platform
-    dominant = max(agent.platform_weights, key=agent.platform_weights.get)
-    weights = config.layer_weights[dominant]
+    # Find active or dominant platform
+    if active_platform_name and active_platform_name in config.layer_weights:
+        weights = config.layer_weights[active_platform_name]
+    else:
+        dominant = max(agent.platform_weights, key=agent.platform_weights.get)
+        weights = config.layer_weights.get(
+            dominant,
+            config.layer_weights["balanced"]
+        )
     
     total_social_pull = (
         pulls["imdb"] * weights["imdb"] +

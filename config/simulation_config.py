@@ -50,7 +50,7 @@ class SimulationConfig:
         # ALGORITHM SETTINGS — REDDIT
         self.reddit_algo_weight: float = 0.5
         self.reddit_social_weight: float = 0.5
-        self.reddit_decay_constant: float = 45000.0
+        self.reddit_decay_constant: float = 45.0
         self.reddit_p_within: float = 0.7
         self.reddit_p_across: float = 0.02
 
@@ -68,10 +68,11 @@ class SimulationConfig:
 
         # LAYER WEIGHTS BY CONTEXT
         self.layer_weights: dict = {
-            "imdb":          {"imdb": 0.6, "reddit": 0.2, "youtube": 0.1},
+            "imdb":          {"imdb": 0.6, "reddit": 0.2, "youtube": 0.2},
             "reddit":        {"imdb": 0.2, "reddit": 0.6, "youtube": 0.2},
             "youtube":       {"imdb": 0.1, "reddit": 0.2, "youtube": 0.7},
-            "cross_platform":{"imdb": 0.33, "reddit": 0.33, "youtube": 0.34}
+            "cross_platform":{"imdb": 0.33, "reddit": 0.33, "youtube": 0.34},
+            "balanced":      {"imdb": 0.33, "reddit": 0.33, "youtube": 0.34}
         }
 
         # INTERVENTION SETTINGS
@@ -131,6 +132,11 @@ class SimulationConfig:
             
         if not abs((self.youtube_algo_weight + self.youtube_social_weight) - 1.0) < 1e-6:
             raise ValueError("YouTube algo and social weights must sum to 1.0.")
+
+        # Check that every entry in layer_weights sums to exactly 1.0 (with 0.01 tolerance)
+        for context, weights in self.layer_weights.items():
+            if not abs(sum(weights.values()) - 1.0) < 0.01:
+                raise ValueError(f"layer_weights[{context}] values must sum to 1.0 within 0.01 tolerance.")
 
     def to_dict(self) -> dict:
         """

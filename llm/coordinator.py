@@ -36,9 +36,44 @@ class LLMPipelineCoordinator:
         """
         result = run_static_llm(agents, self.config)
         self.research_log.append({
-            "mode": "static", "timestep": 0, "result": result
+            "mode": "static", "timestep": 0, 
+            "result": result
         })
+        
+        # Apply adjustments if LLM returned them
+        # and use_llm is True
+        if (self.config.use_llm and 
+            "adjustments" in result and
+            result["adjustments"]):
+            self._apply_static_adjustments(
+                agents, result["adjustments"]
+            )
+        
         return result
+
+    def _apply_static_adjustments(self, agents: list,
+                                   adjustments: dict) -> None:
+        for agent in agents:
+            archetype = agent.archetype
+            if archetype in adjustments:
+                adj = adjustments[archetype]
+                trait_map = {
+                    "confidence_threshold": 
+                        "confidence_threshold",
+                    "update_rate": "update_rate",
+                    "susceptibility": "susceptibility",
+                    "open_mindedness": "open_mindedness",
+                    "critical_thinking": "critical_thinking"
+                }
+                for trait, value in adj.items():
+                    if trait in trait_map:
+                        dist_key = f"{trait}_dist"
+                        if hasattr(agent, dist_key):
+                            current = getattr(agent, dist_key)
+                            # Update mean, keep std
+                            setattr(agent, dist_key, 
+                                (float(value), current[1])
+                            )
 
     def run_dynamic_mode(self, agent: Any, state: Any,
                          timestep: int) -> Optional[dict]:

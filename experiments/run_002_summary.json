@@ -1,31 +1,31 @@
 {
   "run_id": "research_run_002",
-  "elapsed_seconds": 301.33243560791016,
+  "elapsed_seconds": 243.48923516273499,
   "final_n_agents": 330,
-  "final_mean_belief": 3.7071113353194645,
-  "final_std_belief": 2.5189019585167016,
+  "final_mean_belief": 4.893924152125217,
+  "final_std_belief": 1.8137828434628507,
   "checkpoint_means": {
-    "100": 4.5472666734634375,
-    "200": 4.270786769077546,
-    "400": 3.9152515180815195,
-    "600": 3.735025967771622,
-    "800": 3.611759420222376,
-    "900": 3.566275946832111,
-    "1000": 3.545657858080646
+    "100": 4.461395595541167,
+    "200": 4.602449157136016,
+    "400": 4.886512393136479,
+    "600": 4.893705640998669,
+    "800": 4.893680810332634,
+    "900": 4.89371993067824,
+    "1000": 4.893924152125217
   },
-  "youtube_wv_start": -0.54738498296243,
-  "youtube_wv_end": 0.08329487669521299,
-  "early_exposure_bias": 0.7588333333333332,
-  "late_exposure_bias": 0.7128333333333334,
-  "post_intervention_bias": 0.7246666666666667,
-  "adapted_fraction": 0.0030303030303030303,
-  "total_anomalies": 1128,
+  "youtube_wv_start": 0.1769055542057763,
+  "youtube_wv_end": 0.039644868882558734,
+  "early_exposure_bias": 0.8113333333333332,
+  "late_exposure_bias": 0.8166666666666667,
+  "post_intervention_bias": 0.8201666666666667,
+  "adapted_fraction": 0.0,
+  "total_anomalies": 1403,
   "anomaly_types": {
-    "unexpected_resilience": 843,
-    "intervention_backfire": 285
+    "unexpected_resilience": 1132,
+    "intervention_backfire": 271
   },
-  "total_skips": 135839,
-  "n_communities": 19,
+  "total_skips": 107535,
+  "n_communities": 20,
   "intervention_type": "diversity_injection",
   "intervention_start": 400
 }

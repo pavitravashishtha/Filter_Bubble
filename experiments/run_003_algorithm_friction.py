@@ -58,7 +58,7 @@ def run_full_research_simulation():
         tidx = t - 1
         if tidx < store.belief_positions.shape[1]:
             checkpoint_means[t] = float(
-                np.mean(store.belief_positions[:config.n_agents, tidx])
+                np.mean(store.belief_positions[:len(agents), tidx])
             )
     
     # YouTube weight evolution
@@ -230,7 +230,6 @@ def save_full_results(state, config, elapsed):
     std_trajectory = []
     for t in range(config.total_timesteps):
         positions = store.belief_positions[:len(agents), t]
-        positions = positions[positions != 0]
         if len(positions) > 0:
             mean_trajectory.append(float(np.mean(positions)))
             std_trajectory.append(float(np.std(positions)))
